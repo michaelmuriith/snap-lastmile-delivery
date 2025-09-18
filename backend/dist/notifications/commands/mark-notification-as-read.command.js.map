@@ -1,0 +1,1 @@
+{"version":3,"file":"mark-notification-as-read.command.js","sourceRoot":"","sources":["../../../src/notifications/commands/mark-notification-as-read.command.ts"],"names":[],"mappings":";;;AAAA,MAAa,6BAA6B;IACZ;IAA5B,YAA4B,EAAU;QAAV,OAAE,GAAF,EAAE,CAAQ;IAAG,CAAC;CAC3C;AAFD,sEAEC;AAED,MAAa,iCAAiC;IAChB;IAA5B,YAA4B,MAAc;QAAd,WAAM,GAAN,MAAM,CAAQ;IAAG,CAAC;CAC/C;AAFD,8EAEC"}
