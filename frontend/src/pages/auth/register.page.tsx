@@ -33,12 +33,12 @@ export const RegisterPage: React.FC = () => {
     register: registerField,
     handleSubmit,
     formState: { errors },
-    watch,
+    //watch,
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
   });
 
-  const selectedRole = watch('role');
+  //const selectedRole = watch('role');
 
   const onSubmit = async (data: RegisterForm) => {
     setIsLoading(true);

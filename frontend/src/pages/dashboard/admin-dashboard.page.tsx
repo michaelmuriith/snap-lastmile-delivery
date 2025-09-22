@@ -7,12 +7,12 @@ import { MapContainer } from '../../components/map/map-container';
 import { useAuthStore } from '../../stores/auth.store';
 import { useDeliveryStore } from '../../stores/delivery.store';
 import { useNotificationStore } from '../../stores/notification.store';
-import type { Delivery, DeliveryStatus, User } from '../../types';
+import type { DeliveryStatus, User } from '../../types';
 
 export const AdminDashboardPage: React.FC = () => {
-  const { user, logout } = useAuthStore();
+  const { logout } = useAuthStore();
   const { deliveries, isLoading, fetchDeliveries } = useDeliveryStore();
-  const { notifications, fetchNotifications } = useNotificationStore();
+  const { fetchNotifications } = useNotificationStore();
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'deliveries' | 'analytics' | 'settings'>('overview');
 
   useEffect(() => {

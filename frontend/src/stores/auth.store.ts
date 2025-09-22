@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AuthResponse, AuthState, AuthUser, LoginForm, RegisterForm, User } from '../types';
+import type { 
+  AuthState, 
+  LoginForm, RegisterForm, User } from '../types';
 import { apiService } from '../services/api';
 
 interface AuthStore extends AuthState {
@@ -62,7 +64,7 @@ export const useAuthStore = create<AuthStore>()(
         try {
           const userData = await apiService.getProfile();
           // Merge with existing tokens
-          const currentUser = get().user;
+          //const currentUser = get().user;
           const user: User = {
             ...userData,
           };

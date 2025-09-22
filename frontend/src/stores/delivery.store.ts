@@ -16,7 +16,7 @@ interface DeliveryStore extends DeliveryState {
   setCurrentDelivery: (delivery: Delivery | null) => void;
 }
 
-export const useDeliveryStore = create<DeliveryStore>((set, get) => ({
+export const useDeliveryStore = create<DeliveryStore>((set) => ({
   // Initial state
   deliveries: [],
   currentDelivery: null,

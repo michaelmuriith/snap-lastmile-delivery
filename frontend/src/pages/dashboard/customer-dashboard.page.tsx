@@ -8,12 +8,12 @@ import { MapContainer } from '../../components/map/map-container';
 import { useAuthStore } from '../../stores/auth.store';
 import { useDeliveryStore } from '../../stores/delivery.store';
 import { useNotificationStore } from '../../stores/notification.store';
-import type { Delivery, DeliveryStatus } from '../../types';
+import type { DeliveryStatus } from '../../types';
 
 export const CustomerDashboardPage: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { deliveries, isLoading, fetchDeliveries } = useDeliveryStore();
-  const { notifications, fetchNotifications } = useNotificationStore();
+  const { fetchNotifications } = useNotificationStore();
   const [activeTab, setActiveTab] = useState<'overview' | 'deliveries' | 'create' | 'track' | 'profile'>('overview');
 
   useEffect(() => {

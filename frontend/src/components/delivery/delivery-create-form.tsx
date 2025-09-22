@@ -43,7 +43,7 @@ export const DeliveryCreateForm: React.FC<DeliveryCreateFormProps> = ({
     handleSubmit,
     formState: { errors },
     watch,
-    setValue,
+    //setValue,
   } = useForm<DeliveryForm>({
     resolver: zodResolver(deliverySchema),
     defaultValues: {
@@ -75,6 +75,7 @@ export const DeliveryCreateForm: React.FC<DeliveryCreateFormProps> = ({
     }
   };
 
+  /*
   const getAddressSuggestions = async (address: string) => {
     // This would integrate with a geocoding service like Google Maps API
     // For now, we'll just simulate some suggestions
@@ -87,6 +88,7 @@ export const DeliveryCreateForm: React.FC<DeliveryCreateFormProps> = ({
       `${address} Road, District`,
     ];
   };
+  */
 
   return (
     <Card className="w-full max-w-2xl mx-auto">

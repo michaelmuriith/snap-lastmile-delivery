@@ -9,8 +9,8 @@ export const ConnectPage: React.FC = () => {
   const { type } = useParams<{ type: 'send' | 'receive' | 'schedule' }>();
   const [pickupAddress, setPickupAddress] = useState('');
   const [dropAddress, setDropAddress] = useState('');
-  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [dropCoords, setDropCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [pickupCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [dropCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

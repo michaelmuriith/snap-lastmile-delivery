@@ -7,12 +7,12 @@ import { MapContainer } from '../../components/map/map-container';
 import { useAuthStore } from '../../stores/auth.store';
 import { useDeliveryStore } from '../../stores/delivery.store';
 import { useNotificationStore } from '../../stores/notification.store';
-import type { Delivery, DeliveryStatus } from '../../types';
+import type { DeliveryStatus } from '../../types';
 
 export const DriverDashboardPage: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { deliveries, isLoading, fetchDeliveries, assignDriver, updateDeliveryStatus } = useDeliveryStore();
-  const { notifications, fetchNotifications } = useNotificationStore();
+  const { fetchNotifications } = useNotificationStore();
   const [activeTab, setActiveTab] = useState<'overview' | 'available' | 'active' | 'history' | 'earnings' | 'profile'>('overview');
 
   useEffect(() => {

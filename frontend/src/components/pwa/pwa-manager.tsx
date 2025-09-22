@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '../ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { 
+  Card, 
+  CardContent, 
+  //CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from '../ui/card';
 import { Badge } from '../ui/badge';
 import { useNotificationStore } from '../../stores/notification.store';
 import { useAuthStore } from '../../stores/auth.store';
