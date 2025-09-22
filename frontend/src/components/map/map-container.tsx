@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Wrapper, Status } from '@googlemaps/react-wrapper';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { useDeliveryStore } from '../../stores/delivery.store';
-import { useAuthStore } from '../../stores/auth.store';
 import { websocketService } from '../../services/websocket';
 import type { Delivery, LocationUpdate } from '../../types';
 
@@ -13,9 +13,257 @@ interface MapContainerProps {
   interactive?: boolean;
   deliveryId?: string;
   showAllDeliveries?: boolean;
-  center?: [number, number];
+  center?: google.maps.LatLngLiteral;
   zoom?: number;
 }
+
+// Google Maps API Key - defined in vite.config.ts
+const GOOGLE_MAPS_API_KEY = (__GOOGLE_MAPS_API_KEY__ as string) || 'YOUR_API_KEY_HERE';
+const MapComponent: React.FC<{
+  center: google.maps.LatLngLiteral;
+  zoom: number;
+  deliveries: Delivery[];
+  driverLocations: Map<string, LocationUpdate>;
+  interactive: boolean;
+  onMapLoad?: (map: google.maps.Map) => void;
+}> = ({ center, zoom, deliveries, driverLocations, interactive, onMapLoad }) => {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const googleMapRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
+  const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const map = new google.maps.Map(mapRef.current, {
+      center,
+      zoom,
+      zoomControl: interactive,
+      scrollwheel: interactive,
+      draggable: interactive,
+      disableDoubleClickZoom: !interactive,
+      gestureHandling: interactive ? 'auto' : 'none',
+      styles: [
+        {
+          featureType: 'poi',
+          elementType: 'labels',
+          stylers: [{ visibility: 'off' }]
+        }
+      ]
+    });
+
+    googleMapRef.current = map;
+    onMapLoad?.(map);
+
+    return () => {
+      // Cleanup markers
+      markersRef.current.forEach(marker => marker.setMap(null));
+      markersRef.current.clear();
+
+      // Cleanup directions
+      if (directionsRendererRef.current) {
+        directionsRendererRef.current.setMap(null);
+        directionsRendererRef.current = null;
+      }
+    };
+  }, [center, zoom, interactive, onMapLoad]);
+
+  // Update markers when deliveries change
+  useEffect(() => {
+    if (!googleMapRef.current) return;
+
+    const map = googleMapRef.current;
+
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker.setMap(null));
+    markersRef.current.clear();
+
+    // Clear existing directions
+    if (directionsRendererRef.current) {
+      directionsRendererRef.current.setMap(null);
+      directionsRendererRef.current = null;
+    }
+
+    deliveries.forEach(delivery => {
+      // Pickup location
+      if (delivery.pickupLatitude && delivery.pickupLongitude) {
+        const pickupMarker = new google.maps.Marker({
+          position: { lat: delivery.pickupLatitude, lng: delivery.pickupLongitude },
+          map,
+          icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" fill="#ef4444" stroke="white" stroke-width="2"/>
+                <circle cx="12" cy="12" r="6" fill="#ef4444"/>
+              </svg>
+            `),
+            scaledSize: new google.maps.Size(24, 24),
+            anchor: new google.maps.Point(12, 12)
+          },
+          title: 'Pickup Location'
+        });
+
+        const pickupInfoWindow = new google.maps.InfoWindow({
+          content: `
+            <div style="max-width: 200px;">
+              <h3 style="font-weight: bold; margin-bottom: 8px;">Pickup Location</h3>
+              <p style="margin: 4px 0; font-size: 14px; color: #666;">${delivery.pickupAddress}</p>
+              <p style="margin: 4px 0; font-size: 14px;">Package: ${delivery.packageDescription}</p>
+            </div>
+          `
+        });
+
+        pickupMarker.addListener('click', () => {
+          pickupInfoWindow.open(map, pickupMarker);
+        });
+
+        markersRef.current.set(`pickup-${delivery.id}`, pickupMarker);
+      }
+
+      // Delivery location
+      if (delivery.deliveryLatitude && delivery.deliveryLongitude) {
+        const deliveryMarker = new google.maps.Marker({
+          position: { lat: delivery.deliveryLatitude, lng: delivery.deliveryLongitude },
+          map,
+          icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" fill="#10b981" stroke="white" stroke-width="2"/>
+                <circle cx="12" cy="12" r="6" fill="#10b981"/>
+              </svg>
+            `),
+            scaledSize: new google.maps.Size(24, 24),
+            anchor: new google.maps.Point(12, 12)
+          },
+          title: 'Delivery Location'
+        });
+
+        const deliveryInfoWindow = new google.maps.InfoWindow({
+          content: `
+            <div style="max-width: 200px;">
+              <h3 style="font-weight: bold; margin-bottom: 8px;">Delivery Location</h3>
+              <p style="margin: 4px 0; font-size: 14px; color: #666;">${delivery.deliveryAddress}</p>
+              <p style="margin: 4px 0; font-size: 14px;">Recipient: ${delivery.recipientName || 'N/A'}</p>
+            </div>
+          `
+        });
+
+        deliveryMarker.addListener('click', () => {
+          deliveryInfoWindow.open(map, deliveryMarker);
+        });
+
+        markersRef.current.set(`delivery-${delivery.id}`, deliveryMarker);
+      }
+
+      // Driver location (real-time)
+      if (delivery.driverId) {
+        const driverLocation = driverLocations.get(delivery.driverId);
+        if (driverLocation) {
+          const driverMarker = new google.maps.Marker({
+            position: { lat: driverLocation.latitude, lng: driverLocation.longitude },
+            map,
+            icon: {
+              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="16" cy="16" r="8" fill="#3b82f6" stroke="white" stroke-width="2"/>
+                  <circle cx="16" cy="16" r="12" fill="none" stroke="#3b82f6" stroke-width="2" opacity="0.3">
+                    <animate attributeName="r" values="12;18;12" dur="2s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" values="0.3;0;0.3" dur="2s" repeatCount="indefinite"/>
+                  </circle>
+                </svg>
+              `),
+              scaledSize: new google.maps.Size(32, 32),
+              anchor: new google.maps.Point(16, 16)
+            },
+            title: 'Driver Location'
+          });
+
+          const driverInfoWindow = new google.maps.InfoWindow({
+            content: `
+              <div style="max-width: 200px;">
+                <h3 style="font-weight: bold; margin-bottom: 8px;">Driver Location</h3>
+                <p style="margin: 4px 0; font-size: 14px; color: #666;">Live tracking active</p>
+                <p style="margin: 4px 0; font-size: 14px;">Last updated: ${new Date(driverLocation.timestamp).toLocaleTimeString()}</p>
+              </div>
+            `
+          });
+
+          driverMarker.addListener('click', () => {
+            driverInfoWindow.open(map, driverMarker);
+          });
+
+          markersRef.current.set(`driver-${delivery.driverId}`, driverMarker);
+        }
+      }
+
+      // Draw route if both pickup and delivery locations exist
+      if (delivery.pickupLatitude && delivery.pickupLongitude &&
+          delivery.deliveryLatitude && delivery.deliveryLongitude) {
+        const directionsService = new google.maps.DirectionsService();
+        const directionsRenderer = new google.maps.DirectionsRenderer({
+          map,
+          suppressMarkers: true,
+          polylineOptions: {
+            strokeColor: '#3b82f6',
+            strokeWeight: 4,
+            strokeOpacity: 0.7
+          }
+        });
+
+        directionsRendererRef.current = directionsRenderer;
+
+        const request: google.maps.DirectionsRequest = {
+          origin: { lat: delivery.pickupLatitude, lng: delivery.pickupLongitude },
+          destination: { lat: delivery.deliveryLatitude, lng: delivery.deliveryLongitude },
+          travelMode: google.maps.TravelMode.DRIVING
+        };
+
+        directionsService.route(request, (result, status) => {
+          if (status === google.maps.DirectionsStatus.OK) {
+            directionsRenderer.setDirections(result);
+          }
+        });
+      }
+    });
+
+    // Fit map to show all markers
+    if (markersRef.current.size > 0) {
+      const bounds = new google.maps.LatLngBounds();
+      markersRef.current.forEach(marker => {
+        bounds.extend(marker.getPosition()!);
+      });
+      map.fitBounds(bounds);
+
+      // Don't zoom in too much for single points
+      const listener = google.maps.event.addListener(map, 'idle', () => {
+        if (map.getZoom() && map.getZoom()! > 16) {
+          map.setZoom(16);
+        }
+        google.maps.event.removeListener(listener);
+      });
+    }
+  }, [deliveries, driverLocations]);
+
+  return <div ref={mapRef} style={{ height: '100%', width: '100%' }} />;
+};
+
+const LoadingComponent = () => (
+  <div className="flex items-center justify-center h-full">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+      <p className="text-sm text-muted-foreground">Loading map...</p>
+    </div>
+  </div>
+);
+
+const ErrorComponent = ({ error }: { error: string }) => (
+  <div className="flex items-center justify-center h-full">
+    <div className="text-center">
+      <p className="text-destructive mb-2">Map Error</p>
+      <p className="text-sm text-muted-foreground">{error}</p>
+    </div>
+  </div>
+);
 
 export const MapContainer: React.FC<MapContainerProps> = ({
   height = '400px',
@@ -23,93 +271,12 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   interactive = true,
   deliveryId,
   showAllDeliveries = false,
-  center = [-1.2864, 36.8172], // Nairobi coordinates as default
+  center = { lat: -1.2864, lng: 36.8172 }, // Nairobi coordinates as default
   zoom = 12,
 }) => {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<Map<string, any>>(new Map());
-  const routeRef = useRef<any>(null);
-
-  const { user } = useAuthStore();
   const { deliveries, currentDelivery } = useDeliveryStore();
-  const [isLoading, setIsLoading] = useState(true);
-  const [mapError, setMapError] = useState<string | null>(null);
   const [driverLocations, setDriverLocations] = useState<Map<string, LocationUpdate>>(new Map());
-
-  // Initialize map
-  useEffect(() => {
-    const initializeMap = async () => {
-      if (!mapRef.current) return;
-
-      try {
-        // Load Leaflet CSS and JS dynamically
-        if (!document.querySelector('link[href*="leaflet"]')) {
-          const link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-          document.head.appendChild(link);
-        }
-
-        if (!(window as any).L) {
-          const script = document.createElement('script');
-          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-          script.onload = () => initMap();
-          document.head.appendChild(script);
-        } else {
-          initMap();
-        }
-      } catch (error) {
-        setMapError('Failed to load map library');
-        setIsLoading(false);
-      }
-    };
-
-    const initMap = () => {
-      if (!mapRef.current || !(window as any).L) return;
-
-      const L = (window as any).L;
-
-      // Create map instance
-      const map = L.map(mapRef.current, {
-        center,
-        zoom,
-        zoomControl: interactive,
-        scrollWheelZoom: interactive,
-        dragging: interactive,
-        touchZoom: interactive,
-        doubleClickZoom: interactive,
-        boxZoom: interactive,
-        keyboard: interactive,
-      });
-
-      // Add tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 19,
-      }).addTo(map);
-
-      mapInstanceRef.current = map;
-      setIsLoading(false);
-
-      // Add markers based on props
-      updateMarkers();
-    };
-
-    initializeMap();
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, [center, zoom]);
-
-  // Update markers when deliveries change
-  useEffect(() => {
-    updateMarkers();
-  }, [deliveries, currentDelivery, deliveryId, showAllDeliveries, driverLocations]);
+  const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
 
   // Subscribe to real-time location updates
   useEffect(() => {
@@ -132,160 +299,65 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [deliveryId]);
 
-  const updateMarkers = () => {
-    if (!mapInstanceRef.current) return;
-
-    const L = (window as any).L;
-    const map = mapInstanceRef.current;
-
-    // Clear existing markers
-    markersRef.current.forEach(marker => map.removeLayer(marker));
-    markersRef.current.clear();
-
-    // Clear existing route
-    if (routeRef.current) {
-      map.removeLayer(routeRef.current);
-      routeRef.current = null;
-    }
-
-    let deliveriesToShow: Delivery[] = [];
-
+  const getDeliveriesToShow = useCallback((): Delivery[] => {
     if (deliveryId) {
       // Show specific delivery
       const delivery = deliveries.find(d => d.id === deliveryId) || currentDelivery;
-      if (delivery) deliveriesToShow = [delivery];
+      return delivery ? [delivery] : [];
     } else if (showAllDeliveries) {
       // Show all active deliveries
-      deliveriesToShow = deliveries.filter(d =>
+      return deliveries.filter(d =>
         ['assigned', 'picked_up', 'in_transit'].includes(d.status)
       );
     } else if (currentDelivery) {
       // Show current delivery
-      deliveriesToShow = [currentDelivery];
+      return [currentDelivery];
     }
-
-    // Add delivery markers
-    deliveriesToShow.forEach(delivery => {
-      // Pickup location
-      if (delivery.pickupLatitude && delivery.pickupLongitude) {
-        const pickupIcon = L.divIcon({
-          html: '<div style="background-color: #ef4444; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>',
-          className: 'custom-marker',
-          iconSize: [20, 20],
-          iconAnchor: [10, 10],
-        });
-
-        const pickupMarker = L.marker([delivery.pickupLatitude, delivery.pickupLongitude], { icon: pickupIcon })
-          .addTo(map)
-          .bindPopup(`
-            <div class="p-2">
-              <h3 class="font-semibold text-sm">Pickup Location</h3>
-              <p class="text-xs text-gray-600">${delivery.pickupAddress}</p>
-              <p class="text-xs">Package: ${delivery.packageDescription}</p>
-            </div>
-          `);
-
-        markersRef.current.set(`pickup-${delivery.id}`, pickupMarker);
-      }
-
-      // Delivery location
-      if (delivery.deliveryLatitude && delivery.deliveryLongitude) {
-        const deliveryIcon = L.divIcon({
-          html: '<div style="background-color: #10b981; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>',
-          className: 'custom-marker',
-          iconSize: [20, 20],
-          iconAnchor: [10, 10],
-        });
-
-        const deliveryMarker = L.marker([delivery.deliveryLatitude, delivery.deliveryLongitude], { icon: deliveryIcon })
-          .addTo(map)
-          .bindPopup(`
-            <div class="p-2">
-              <h3 class="font-semibold text-sm">Delivery Location</h3>
-              <p class="text-xs text-gray-600">${delivery.deliveryAddress}</p>
-              <p class="text-xs">Recipient: ${delivery.recipientName || 'N/A'}</p>
-            </div>
-          `);
-
-        markersRef.current.set(`delivery-${delivery.id}`, deliveryMarker);
-      }
-
-      // Driver location (real-time)
-      if (delivery.driverId) {
-        const driverLocation = driverLocations.get(delivery.driverId);
-        if (driverLocation) {
-          const driverIcon = L.divIcon({
-            html: '<div style="background-color: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); position: relative;"><div style="position: absolute; top: -8px; left: -8px; width: 32px; height: 32px; border: 2px solid #3b82f6; border-radius: 50%; animation: pulse 2s infinite;"></div></div>',
-            className: 'custom-marker',
-            iconSize: [16, 16],
-            iconAnchor: [8, 8],
-          });
-
-          const driverMarker = L.marker([driverLocation.latitude, driverLocation.longitude], { icon: driverIcon })
-            .addTo(map)
-            .bindPopup(`
-              <div class="p-2">
-                <h3 class="font-semibold text-sm">Driver Location</h3>
-                <p class="text-xs text-gray-600">Live tracking active</p>
-                <p class="text-xs">Last updated: ${new Date(driverLocation.timestamp).toLocaleTimeString()}</p>
-              </div>
-            `);
-
-          markersRef.current.set(`driver-${delivery.driverId}`, driverMarker);
-        }
-      }
-
-      // Draw route if both pickup and delivery locations exist
-      if (delivery.pickupLatitude && delivery.pickupLongitude &&
-          delivery.deliveryLatitude && delivery.deliveryLongitude) {
-        const routeCoordinates = [
-          [delivery.pickupLatitude, delivery.pickupLongitude],
-          [delivery.deliveryLatitude, delivery.deliveryLongitude]
-        ];
-
-        routeRef.current = L.polyline(routeCoordinates, {
-          color: '#3b82f6',
-          weight: 3,
-          opacity: 0.7,
-          dashArray: '10, 10',
-        }).addTo(map);
-      }
-    });
-
-    // Fit map to show all markers
-    if (markersRef.current.size > 0) {
-      const group = new L.featureGroup(Array.from(markersRef.current.values()));
-      map.fitBounds(group.getBounds().pad(0.1));
-    }
-  };
+    return [];
+  }, [deliveries, currentDelivery, deliveryId, showAllDeliveries]);
 
   const handleCenterOnDelivery = () => {
-    if (currentDelivery?.pickupLatitude && currentDelivery?.pickupLongitude) {
-      mapInstanceRef.current?.setView([currentDelivery.pickupLatitude, currentDelivery.pickupLongitude], 15);
+    if (mapInstance && currentDelivery?.pickupLatitude && currentDelivery?.pickupLongitude) {
+      mapInstance.setCenter({ lat: currentDelivery.pickupLatitude, lng: currentDelivery.pickupLongitude });
+      mapInstance.setZoom(15);
     }
   };
 
   const handleCenterOnDriver = () => {
-    if (currentDelivery?.driverId) {
+    if (mapInstance && currentDelivery?.driverId) {
       const driverLocation = driverLocations.get(currentDelivery.driverId);
       if (driverLocation) {
-        mapInstanceRef.current?.setView([driverLocation.latitude, driverLocation.longitude], 16);
+        mapInstance.setCenter({ lat: driverLocation.latitude, lng: driverLocation.longitude });
+        mapInstance.setZoom(16);
       }
     }
   };
 
-  if (mapError) {
-    return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-8">
-          <div className="text-center">
-            <p className="text-destructive mb-2">Map Error</p>
-            <p className="text-sm text-muted-foreground">{mapError}</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const handleMapLoad = useCallback((map: google.maps.Map) => {
+    setMapInstance(map);
+  }, []);
+
+  const deliveriesToShow = getDeliveriesToShow();
+
+  const renderMap = (status: Status) => {
+    switch (status) {
+      case Status.LOADING:
+        return <LoadingComponent />;
+      case Status.FAILURE:
+        return <ErrorComponent error="Failed to load Google Maps. Please check your API key." />;
+      case Status.SUCCESS:
+        return (
+          <MapComponent
+            center={center}
+            zoom={zoom}
+            deliveries={deliveriesToShow}
+            driverLocations={driverLocations}
+            interactive={interactive}
+            onMapLoad={handleMapLoad}
+          />
+        );
+    }
+  };
 
   return (
     <Card>
@@ -322,19 +394,11 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="relative">
-          {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-muted/50 rounded-lg z-10">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                <p className="text-sm text-muted-foreground">Loading map...</p>
-              </div>
-            </div>
-          )}
-          <div
-            ref={mapRef}
-            style={{ height, width: '100%' }}
-            className="rounded-lg border"
+        <div className="relative" style={{ height }}>
+          <Wrapper
+            apiKey={GOOGLE_MAPS_API_KEY}
+            libraries={['places', 'geometry', 'drawing']}
+            render={renderMap}
           />
           {deliveryId && (
             <div className="absolute top-2 left-2 z-20">

@@ -11,6 +11,8 @@ export const DashboardPage: React.FC = () => {
   const { deliveries, fetchDeliveries } = useDeliveryStore();
   const { notifications, fetchNotifications } = useNotificationStore();
 
+  console.log('User in DashboardPage:', user);
+
   useEffect(() => {
     // Fetch user data on mount
     fetchDeliveries(1, 5);

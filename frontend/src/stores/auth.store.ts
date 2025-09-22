@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AuthState, AuthUser, LoginForm, RegisterForm } from '../types';
+import type { AuthResponse, AuthState, AuthUser, LoginForm, RegisterForm, User } from '../types';
 import { apiService } from '../services/api';
 
 interface AuthStore extends AuthState {
@@ -25,6 +25,8 @@ export const useAuthStore = create<AuthStore>()(
         set({ isLoading: true });
         try {
           const user = await apiService.login(credentials);
+
+          console.log('Logged in user:', user);
           set({
             user,
             isAuthenticated: true,
@@ -61,10 +63,8 @@ export const useAuthStore = create<AuthStore>()(
           const userData = await apiService.getProfile();
           // Merge with existing tokens
           const currentUser = get().user;
-          const user: AuthUser = {
+          const user: User = {
             ...userData,
-            accessToken: currentUser?.accessToken || '',
-            refreshToken: currentUser?.refreshToken || '',
           };
           set({ user });
         } catch (error) {

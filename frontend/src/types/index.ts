@@ -6,14 +6,11 @@ export interface User {
   phone: string;
   role: 'customer' | 'driver' | 'admin';
   isVerified: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-export interface AuthUser extends User {
-  accessToken: string;
-  refreshToken: string;
-}
+export type AuthUser = User
 
 // Delivery Types
 export type DeliveryStatus = 'pending' | 'assigned' | 'picked_up' | 'in_transit' | 'delivered' | 'cancelled';
@@ -99,6 +96,14 @@ export interface Notification {
   isRead: boolean;
   metadata?: Record<string, any>;
   createdAt: string;
+}
+
+
+//API Authentication response Types
+export interface AuthResponse<T> {
+  access_token: string;
+  refresh_token: string;
+  user: T;
 }
 
 // API Response Types

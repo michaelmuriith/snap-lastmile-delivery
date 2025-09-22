@@ -11,5 +11,13 @@
             "username": "postgres",
             "password": "password"
         }
-    ]
+    ],
+
+    "files.exclude": {
+  "**/.git": false,
+  "**/.svn": true,
+  "**/.hg": true,
+  "**/.DS_Store": true
+}
+
 }

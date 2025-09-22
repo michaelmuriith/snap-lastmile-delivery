@@ -14,5 +14,9 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     }
+  },
+  define: {
+    // Define Google Maps API key as a global constant
+    __GOOGLE_MAPS_API_KEY__: JSON.stringify(process.env.VITE_GOOGLE_MAPS_API_KEY || ''),
   }
 })

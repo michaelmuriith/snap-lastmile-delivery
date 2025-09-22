@@ -38,6 +38,7 @@ export const LoginPage: React.FC = () => {
 
     try {
       await login(data);
+      console.log('fuck')
       navigate('/dashboard');
     } catch (err: any) {
       console.error('Login failed:', err);

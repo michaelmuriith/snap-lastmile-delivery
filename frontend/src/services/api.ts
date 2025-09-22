@@ -9,7 +9,8 @@ import type {
   RegisterForm,
   CreateDeliveryForm,
   ApiResponse,
-  PaginatedResponse
+  PaginatedResponse,
+  AuthResponse
 } from '../types';
 
 class ApiService {
@@ -67,11 +68,17 @@ class ApiService {
 
   // Auth endpoints
   async login(credentials: LoginForm): Promise<AuthUser> {
-    const response: AxiosResponse<ApiResponse<AuthUser>> = await this.api.post('/auth/login', credentials);
-    const { accessToken, refreshToken } = response.data.data;
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
-    return response.data.data;
+    const response: AxiosResponse<AuthResponse<AuthUser>> = await this.api.post('/auth/login', credentials);
+    console.log('Login response:', response.data);
+    const { access_token, refresh_token, user} = response.data;
+    localStorage.setItem('accessToken', access_token);
+    localStorage.setItem('refreshToken', refresh_token);
+
+
+    console.log(access_token)
+
+    console.log('res:', user);
+    return user;
   }
 
   async register(userData: RegisterForm): Promise<User> {
@@ -88,8 +95,8 @@ class ApiService {
   }
 
   async getProfile(): Promise<User> {
-    const response: AxiosResponse<ApiResponse<User>> = await this.api.get('/auth/profile');
-    return response.data.data;
+    const response: AxiosResponse<User> = await this.api.get('/auth/profile');
+    return response.data;
   }
 
   async refreshToken(): Promise<{ accessToken: string }> {

@@ -11,9 +11,11 @@ import { DashboardPage } from './pages/dashboard/dashboard.page';
 import { CustomerDashboardPage } from './pages/dashboard/customer-dashboard.page';
 import { DriverDashboardPage } from './pages/dashboard/driver-dashboard.page';
 import { AdminDashboardPage } from './pages/dashboard/admin-dashboard.page';
+import { DeliveryTrackingPage } from './pages/delivery/delivery-tracking.page';
 
 // Components
 import { ProtectedRoute } from './components/auth/protected-route';
+import { ConnectPage } from './pages/delivery/connect';
 
 function App() {
   const { checkAuth, isAuthenticated, isLoading, user } = useAuthStore();
@@ -37,11 +39,13 @@ function App() {
       <div className="App">
         <Routes>
           {/* Public routes */}
-          <Route path="/" element={
-            isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />
-          } />
+          <Route path="/" element={ <LandingPage />}/>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/track/:deliveryId" element={<DeliveryTrackingPage />} />
+          {/* Route to send/receive/schedule package */}
+          <Route path="/connect/:type" element={<ConnectPage />} />
+        
 
           {/* Protected routes */}
           <Route
