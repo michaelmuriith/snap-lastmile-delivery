@@ -83,33 +83,27 @@ services:
       start_period: 40s
 
 
-  # SNAP Frontend
-  frontend: 
+  # SNAP Frontend (Production)
+  frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: snap_frontend
     restart: unless-stopped
     environment:
-      NODE_ENV: development
-      VITE_API_URL: http://localhost:3000/api
-      VITE_FRONTEND_URL: http://localhost:5173
-      # Google Maps API Configuration
+      NODE_ENV: production
+      # API configuration for production build
+      VITE_API_BASE_URL: http://backend:3000/api
       VITE_GOOGLE_MAPS_API_KEY: AIzaSyC_Fa79ugNW4zigkTvBWY4sqdD0Al2Ij_U
-      # API Base URL
-      VITE_API_BASE_URL: http://localhost:3000/api
     ports:
-      - "5173:5173"
+      - "80:80"
     depends_on:
       backend:
         condition: service_healthy
     networks:
       - snap_network
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5173 || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
