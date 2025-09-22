@@ -16,6 +16,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Prepare target dir on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            sudo mkdir -p "${PROJECT_PATH:-/opt/snap}"
+            # change 'michael:michael' to your SSH user/group if different
+            sudo chown -R michael:michael "${PROJECT_PATH:-/opt/snap}"
+
       - name: Upload project to VPS (SCP)
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -23,11 +35,10 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          # upload the whole repo (fast enough for most cases)
           source: "."
           target: ${{ env.PROJECT_PATH }}
           overwrite: true
-          rm: true
+          rm: false            # <— do NOT delete the folder
           strip_components: 0
 
       - name: Rebuild and restart Docker Compose
