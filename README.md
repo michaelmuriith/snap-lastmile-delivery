@@ -1,192 +1,177 @@
 # SNAP - Last-Mile Delivery Application
 
-A scalable last-mile delivery platform built with NestJS backend and React frontend, featuring real-time tracking, role-based authentication, and mobile-first design.
+A comprehensive last-mile delivery platform built with modern technologies, featuring real-time tracking, multi-user dashboards, and complete monitoring stack.
 
-## 🚀 Quick Start with Docker
+## 🚀 Quick Start
 
 ### Prerequisites
-- Docker and Docker Compose installed
-- At least 4GB RAM available
-- Ports 3000, 5432, and 6379 available
+- Ubuntu/Debian VPS (2GB RAM, 20GB storage minimum)
+- Docker and Docker Compose
+- Domain name (recommended)
 
-### Development Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd snap
-   ```
-
-2. **Start the development environment**
-   ```bash
-   docker-compose -f docker-compose.dev.yml up --build
-   ```
-
-   This will start:
-   - **PostgreSQL** on port 5432
-   - **Redis** on port 6379
-   - **Backend API** on port 3000 with hot reload
-
-3. **Database initialization**
-   The database will be automatically initialized with the schema when the containers start.
-
-4. **Access the application**
-   - API: http://localhost:3000
-   - API Documentation: http://localhost:3000/api (when Swagger is implemented)
-
-### Production Setup
-
-1. **Build and start production environment**
-   ```bash
-   docker-compose up --build -d
-   ```
-
-2. **Check logs**
-   ```bash
-   docker-compose logs -f backend
-   ```
-
-### Docker Commands
+### One-Command Deployment
 
 ```bash
-# Start all services
-docker-compose -f docker-compose.dev.yml up -d
+# Clone repository
+git clone <your-repo-url>
+cd snap
 
-# Stop all services
-docker-compose down
+# Run deployment script
+chmod +x deploy.sh && ./deploy.sh
 
-# Rebuild and restart
-docker-compose up --build
+# Configure environment
+sudo chmod +x setup-env.sh && ./setup-env.sh
 
-# View logs
-docker-compose logs -f
-
-# Access database directly
-docker exec -it snap_postgres psql -U postgres -d snap_db
-
-# Access Redis directly
-docker exec -it snap_redis redis-cli
+# Start application
+docker-compose up -d
 ```
+
+## 📋 Services Overview
+
+| Service | Port | Description | Access |
+|---------|------|-------------|---------|
+| Frontend | 80 | React SPA with Nginx | `http://your-domain` |
+| Backend | 3000 | NestJS API | `http://your-domain:3000` |
+| PostgreSQL | 5432 | Database | Internal only |
+| Redis | 6379 | Cache & Sessions | Internal only |
+| pgAdmin | 5050 | Database Management | `http://your-domain:5050` |
+| Prometheus | 9090 | Metrics Collection | `http://your-domain:9090` |
+| Grafana | 3001 | Monitoring Dashboard | `http://your-domain:3001` |
+| Node Exporter | 9100 | System Metrics | Internal |
+| cAdvisor | 8080 | Container Metrics | Internal |
+
+## 🔐 Default Credentials
+
+| Service | Username | Password |
+|---------|----------|----------|
+| pgAdmin | admin@snap.com | admin123 |
+| Grafana | admin | admin123 |
+
+> **⚠️ Change these passwords in production!**
 
 ## 🏗️ Architecture
 
-### Backend (NestJS + TypeScript)
-- **Authentication**: JWT with refresh tokens
-- **Database**: PostgreSQL with raw SQL queries
-- **Cache**: Redis for sessions and caching
-- **Real-time**: WebSocket support for live tracking
-- **CQRS**: Command Query Responsibility Segregation for complex operations
+### Backend (NestJS)
+- **CQRS Pattern**: Separate read/write operations for scalability
+- **JWT Authentication**: Secure token-based auth with refresh tokens
+- **Role-Based Access Control**: Customer, Driver, Admin roles
+- **WebSocket Integration**: Real-time delivery tracking
+- **Raw SQL Queries**: Direct database access with connection pooling
 
-### Database Schema
-- Users (customers, drivers, admins)
-- Deliveries with status tracking
-- Real-time GPS tracking sessions
-- Payment transactions
-- Notifications and audit logs
+### Frontend (React + Vite)
+- **Responsive Design**: Mobile-first approach with Tailwind CSS
+- **PWA Features**: Offline support, installable app
+- **Real-time Maps**: Google Maps integration with live tracking
+- **State Management**: Zustand for efficient state handling
+- **Component Library**: ShadCN UI for consistent design
 
-## 🔧 Environment Configuration
+### Monitoring Stack
+- **Prometheus**: Metrics collection and alerting
+- **Grafana**: Visualization and dashboards
+- **Node Exporter**: System resource monitoring
+- **cAdvisor**: Docker container metrics
+- **pgAdmin**: Database administration
 
-Copy `.env.example` to `.env` and configure:
+## 📱 Features
 
-```env
+### 👤 User Roles
+- **Customers**: Create and track deliveries
+- **Drivers**: Accept and complete delivery assignments
+- **Admins**: Oversee platform operations and analytics
+
+### 📦 Delivery Management
+- **Real-time Tracking**: GPS-based driver location updates
+- **Status Updates**: Automated delivery lifecycle management
+- **Payment Integration**: Secure payment processing
+- **Notifications**: Email, SMS, and in-app notifications
+
+### 🗺️ Mapping & Navigation
+- **Google Maps Integration**: Interactive maps with custom markers
+- **Route Optimization**: Efficient delivery routing
+- **Geocoding**: Address-to-coordinate conversion
+- **Real-time Updates**: Live driver position tracking
+
+## 🚀 Deployment Options
+
+### Automated Deployment
+```bash
+./deploy.sh          # Install dependencies and configure services
+./setup-env.sh       # Configure environment variables
+docker-compose up -d # Start all services
+```
+
+### Manual Deployment
+1. Install Docker and Docker Compose
+2. Clone repository
+3. Configure environment variables
+4. Run `docker-compose up -d`
+
+### Production Setup
+- Set up SSL/TLS with Let's Encrypt
+- Configure domain DNS
+- Set up automated backups
+- Configure monitoring alerts
+- Enable firewall rules
+
+## 🔧 Development
+
+### Local Development
+```bash
+# Backend
+cd backend && npm install && npm run start:dev
+
+# Frontend
+cd frontend && npm install && npm run dev
+
 # Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=password
-DB_NAME=snap_db
-
-# JWT
-JWT_SECRET=your-secret-key
-JWT_REFRESH_SECRET=your-refresh-secret
-
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
+docker-compose up postgres redis -d
 ```
 
-## 📡 API Endpoints
-
-### Authentication
-- `POST /auth/register` - User registration
-- `POST /auth/login` - User login
-- `POST /auth/refresh` - Refresh access token
-- `POST /auth/logout` - User logout
-- `GET /auth/profile` - Get user profile
-
-### Users (Protected)
-- `GET /users` - List users (admin only)
-- `GET /users/:id` - Get user details
-- `PUT /users/:id` - Update user
-
-### Deliveries (Protected)
-- `POST /deliveries` - Create delivery request
-- `GET /deliveries` - List user deliveries
-- `GET /deliveries/:id` - Get delivery details
-- `PUT /deliveries/:id/status` - Update delivery status
-
-## 🧪 Testing
-
+### Testing
 ```bash
-# Run unit tests
-npm run test
+# Backend tests
+cd backend && npm run test
 
-# Run e2e tests
-npm run test:e2e
-
-# Run with coverage
-npm run test:cov
+# E2E tests
+cd backend && npm run test:e2e
 ```
-
-## 🚀 Deployment
-
-### Docker Production Build
-```bash
-docker build -f backend/Dockerfile -t snap-backend ./backend
-docker run -p 3000:3000 snap-backend
-```
-
-### Environment Variables for Production
-- Use strong, unique secrets for JWT
-- Configure proper database credentials
-- Set `NODE_ENV=production`
-- Configure CORS for your frontend domain
-
-## 📁 Project Structure
-
-```
-snap/
-├── backend/                 # NestJS API server
-│   ├── src/
-│   │   ├── auth/           # Authentication module
-│   │   ├── database/       # Database connection & migrations
-│   │   ├── users/          # User management
-│   │   ├── deliveries/     # Delivery operations
-│   │   └── ...
-│   ├── Dockerfile
-│   └── package.json
-├── frontend/                # React application (future)
-├── docs/                   # Documentation
-├── docker-compose.yml      # Production setup
-├── docker-compose.dev.yml  # Development setup
-└── README.md
-```
-
-## 🔒 Security Features
-
-- **Password Hashing**: bcrypt with salt rounds
-- **JWT Tokens**: Short-lived access tokens with refresh mechanism
-- **Role-Based Access**: Customer, Driver, Admin roles
-- **Input Validation**: Class-validator for all inputs
-- **CORS Protection**: Configured for frontend domain
-- **SQL Injection Prevention**: Parameterized queries
 
 ## 📊 Monitoring
 
-- Health checks for all services
-- Database connection monitoring
-- Application performance metrics
-- Error logging and tracking
+### Grafana Dashboards
+- **SNAP Overview**: System performance and container metrics
+- **Database Performance**: PostgreSQL connection and query metrics
+- **Application Metrics**: API response times and error rates
+
+### Prometheus Metrics
+- **System Resources**: CPU, memory, disk usage
+- **Application Performance**: Request rates, latency, errors
+- **Database Metrics**: Connection pools, query performance
+- **Container Metrics**: Resource usage per service
+
+## 🔒 Security
+
+### Production Security
+- JWT tokens with secure secrets
+- Password hashing with bcrypt
+- CORS configuration
+- Rate limiting
+- Input validation
+- SQL injection prevention
+
+### Network Security
+- Internal database access only
+- Firewall configuration
+- SSL/TLS encryption
+- Secure API endpoints
+
+## 📚 Documentation
+
+- **[API Documentation](./docs/api.md)**: Complete API reference
+- **[Architecture](./docs/architecture.md)**: System design and patterns
+- **[Deployment](./DEPLOYMENT.md)**: Detailed deployment guide
+- **[Frontend Structure](./docs/frontend-structure.md)**: Component organization
+- **[Backend Structure](./docs/backend-structure.md)**: Module breakdown
 
 ## 🤝 Contributing
 
@@ -198,46 +183,16 @@ snap/
 
 ## 📄 License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🆘 Troubleshooting
+## 🆘 Support
 
-### Common Issues
+For support and questions:
+- Check the [Deployment Guide](./DEPLOYMENT.md)
+- Review [Troubleshooting](./DEPLOYMENT.md#troubleshooting)
+- Check logs: `docker-compose logs`
+- Monitor dashboards in Grafana
 
-**Database Connection Failed**
-```bash
-# Check if PostgreSQL is running
-docker ps | grep postgres
+---
 
-# Check database logs
-docker-compose logs postgres
-```
-
-**Port Already in Use**
-```bash
-# Find process using port
-netstat -tulpn | grep :3000
-
-# Kill process or change port in docker-compose.yml
-```
-
-**Redis Connection Issues**
-```bash
-# Test Redis connection
-docker exec -it snap_redis redis-cli ping
-```
-
-### Logs and Debugging
-
-```bash
-# View all logs
-docker-compose logs -f
-
-# View specific service logs
-docker-compose logs -f backend
-
-# Access container shell
-docker exec -it snap_backend sh
-```
-
-For more help, check the [Issues](https://github.com/your-repo/issues) page or create a new issue.
+**Built with ❤️ using NestJS, React, PostgreSQL, and Docker**
