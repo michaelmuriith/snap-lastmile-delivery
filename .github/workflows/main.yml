@@ -1,0 +1,59 @@
+name: Deploy SNAP to VPS
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Copy repo to the server (fast + avoids needing Git on server)
+      - name: Upload project files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: |
+            ./*
+            ./.dockerignore
+            ./docker-compose.yml
+          target: ${{ secrets.PROJECT_PATH || '/opt/snap' }}
+          overwrite: true
+          rm: true
+          strip_components: 0
+          # Exclude junk from uploads
+          exclude: |
+            .git/
+            node_modules/
+            **/node_modules/
+            .github/
+
+      # Build & restart the stack
+      - name: Rebuild and restart Docker Compose
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+            cd "${PROJECT_PATH:-/opt/snap}"
+
+            # Optional: ensure .env is present on the server (if you use one)
+            # test -f .env && echo ".env found" || echo "No .env file (skipping)"
+
+            # Pull images if you use image tags; otherwise build from Dockerfile
+            docker compose down
+            docker compose up -d --build
+
+            # Housekeeping
+            docker system prune -f
