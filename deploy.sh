@@ -78,8 +78,8 @@ sudo ufw allow 3001  # Grafana
 
 # Create application directory
 print_status "Creating application directory..."
-mkdir -p ~/snap
-cd ~/snap
+mkdir -p ~/opt/snap
+cd ~/opt/snap
 
 # Clone repository (you'll need to replace with your actual repo URL)
 print_status "Cloning SNAP repository..."

@@ -17,7 +17,7 @@ git clone <your-repo-url>
 cd snap
 
 # Run deployment script
-chmod +x deploy.sh && ./deploy.sh
+sudo chmod +x deploy.sh && ./deploy.sh
 
 # Configure environment
 sudo chmod +x setup-env.sh && ./setup-env.sh
