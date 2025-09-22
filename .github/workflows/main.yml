@@ -2,55 +2,76 @@ name: Deploy SNAP to VPS
 
 on:
   push:
-    branches: [ "main" ]
-  workflow_dispatch: {}
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-  deploy:
+  run_pull:
+    name: Pull & Deploy on VPS
     runs-on: ubuntu-latest
 
-    env:
-      PROJECT_PATH: ${{ secrets.PROJECT_PATH || '/opt/snap' }}
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Set up SSH for runner (key + agent + known_hosts)
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          install -m 600 -D /dev/null ~/.ssh/id_rsa
+          # write the private key EXACTLY as stored in the secret (multiline)
+          printf '%s' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          # start agent and add the key for agent forwarding
+          eval "$(ssh-agent -s)"
+          ssh-add ~/.ssh/id_rsa
+          # trust the VPS host key to avoid interactive prompt
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Prepare target dir on VPS
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            sudo mkdir -p "${PROJECT_PATH:-/opt/snap}"
-            # change 'michael:michael' to your SSH user/group if different
-            sudo chown -R michael:michael "${PROJECT_PATH:-/opt/snap}"
+      - name: Remote pull + compose deploy (via agent forwarding)
+        env:
+          WORK_DIR: ${{ secrets.WORK_DIR }}
+          MAIN_BRANCH: ${{ secrets.MAIN_BRANCH }}
+          REPO_SSH_URL: ${{ secrets.SSH_KEY }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # -A enables SSH agent forwarding so the server can auth to GitHub using the runner's key
+          ssh -A "${SSH_USER}@${SSH_HOST}" bash -s <<'EOF'
+          set -euo pipefail
 
-      - name: Upload project to VPS (SCP)
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          source: "."
-          target: ${{ env.PROJECT_PATH }}
-          overwrite: true
-          rm: false            # <— do NOT delete the folder
-          strip_components: 0
+          # -------- inputs from runner --------
+          WORK_DIR="${WORK_DIR}"
+          MAIN_BRANCH="${MAIN_BRANCH:-main}"
+          REPO="${REPO_SSH_URL}"
 
-      - name: Rebuild and restart Docker Compose
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          script: |
-            set -e
-            cd "${PROJECT_PATH:-/opt/snap}"
-            docker compose down || true
-            docker compose up -d --build
-            docker system prune -f
+          # Prepare ~/.ssh on the *server* and trust GitHub host key (non-interactive)
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          # First deploy: clone if directory missing or not a git repo
+          if [ ! -d "$WORK_DIR/.git" ]; then
+            mkdir -p "$WORK_DIR"
+            git clone "$REPO" "$WORK_DIR"
+          fi
+
+          cd "$WORK_DIR"
+
+          # Make sure the working copy is clean and on the right branch
+          git fetch --prune
+          git checkout "$MAIN_BRANCH"
+          git reset --hard "origin/$MAIN_BRANCH"
+
+          # If your repo needs submodules:
+          # git submodule sync --recursive
+          # git submodule update --init --recursive
+
+          # Deploy with Docker Compose
+          docker compose down || true
+          docker compose up -d --build
+          docker system prune -f || true
+          EOF
+
+      - name: Cleanup runner SSH material
+        if: always()
+        run: rm -rf ~/.ssh
