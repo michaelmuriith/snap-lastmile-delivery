@@ -10,8 +10,8 @@ RUN apk add --no-cache postgresql-client
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Install all dependencies (including dev dependencies)
+RUN npm install
 
 # Copy source code
 COPY . .
@@ -32,4 +32,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node healthcheck.js
 
 # Start the application
-CMD ["npm", "run", "start:prod"]
+CMD ["npm", "run", "start:dev"]
