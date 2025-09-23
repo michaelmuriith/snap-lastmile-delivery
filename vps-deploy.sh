@@ -199,8 +199,7 @@ setup_application() {
     cd ~/snap
 
     # For this demo, we'll assume the files are already there
-    # In real deployment, you would clone your repository:
-    # git clone https://github.com/yourusername/snap.git .
+    git clone https://github.com/michaelmuriith/snap-lastmile-delivery.git .
 
     print_success "Application directory created"
 }
