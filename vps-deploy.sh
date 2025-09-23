@@ -424,7 +424,7 @@ setup_ssl() {
         sudo apt install -y certbot python3-certbot-nginx
 
         # Get SSL certificate
-        sudo certbot certonly --standalone -d $DOMAIN --email $EMAIL --agree-tos --non-interactive
+        sudo certbot certonly --standalone -d snaplast.duckdns.org --email michaelwanjiru01@gmail.com --agree-tos --non-interactive
 
         print_success "SSL certificates obtained"
     else

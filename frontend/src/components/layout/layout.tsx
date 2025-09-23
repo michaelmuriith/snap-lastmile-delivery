@@ -9,12 +9,15 @@ interface LayoutProps {
 export const Layout: React.FC<LayoutProps> = ({ children, className }) => {
   return (
     <div className={cn("min-h-screen bg-background", className)}>
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto  py-8">
         {children}
       </main>
     </div>
   );
 };
+
+// Re-export LandingLayout for convenience
+export { LandingLayout } from './landing-layout.component';
 
 interface PageHeaderProps {
   title: string;

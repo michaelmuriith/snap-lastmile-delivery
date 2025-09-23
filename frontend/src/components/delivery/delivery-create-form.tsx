@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { AddressAutocomplete } from '../ui/address-autocomplete';
 import { useDeliveryStore } from '../../stores/delivery.store';
 import { useAuthStore } from '../../stores/auth.store';
 
@@ -43,7 +44,7 @@ export const DeliveryCreateForm: React.FC<DeliveryCreateFormProps> = ({
     handleSubmit,
     formState: { errors },
     watch,
-    //setValue,
+    setValue,
   } = useForm<DeliveryForm>({
     resolver: zodResolver(deliverySchema),
     defaultValues: {
@@ -52,6 +53,20 @@ export const DeliveryCreateForm: React.FC<DeliveryCreateFormProps> = ({
   });
 
   const selectedType = watch('type');
+
+  const handlePickupPlaceSelect = (place: google.maps.places.PlaceResult) => {
+    if (place.geometry?.location) {
+      setValue('pickupLatitude', place.geometry.location.lat());
+      setValue('pickupLongitude', place.geometry.location.lng());
+    }
+  };
+
+  const handleDeliveryPlaceSelect = (place: google.maps.places.PlaceResult) => {
+    if (place.geometry?.location) {
+      setValue('deliveryLatitude', place.geometry.location.lat());
+      setValue('deliveryLongitude', place.geometry.location.lng());
+    }
+  };
 
   const onSubmit = async (data: DeliveryForm) => {
     setIsLoading(true);
@@ -138,11 +153,11 @@ export const DeliveryCreateForm: React.FC<DeliveryCreateFormProps> = ({
             <label htmlFor="pickupAddress" className="text-sm font-medium">
               Pickup Address
             </label>
-            <Input
-              id="pickupAddress"
-              placeholder="Enter pickup address"
+            <AddressAutocomplete
+              placeholder="Start typing to search for pickup address"
+              onPlaceSelect={handlePickupPlaceSelect}
+              error={!!errors.pickupAddress}
               {...register('pickupAddress')}
-              className={errors.pickupAddress ? 'border-destructive' : ''}
             />
             {errors.pickupAddress && (
               <p className="text-sm text-destructive">{errors.pickupAddress.message}</p>
@@ -154,11 +169,11 @@ export const DeliveryCreateForm: React.FC<DeliveryCreateFormProps> = ({
             <label htmlFor="deliveryAddress" className="text-sm font-medium">
               Delivery Address
             </label>
-            <Input
-              id="deliveryAddress"
-              placeholder="Enter delivery address"
+            <AddressAutocomplete
+              placeholder="Start typing to search for delivery address"
+              onPlaceSelect={handleDeliveryPlaceSelect}
+              error={!!errors.deliveryAddress}
               {...register('deliveryAddress')}
-              className={errors.deliveryAddress ? 'border-destructive' : ''}
             />
             {errors.deliveryAddress && (
               <p className="text-sm text-destructive">{errors.deliveryAddress.message}</p>

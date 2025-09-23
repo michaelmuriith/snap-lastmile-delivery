@@ -9,11 +9,13 @@ A comprehensive last-mile delivery platform built with modern technologies, feat
 - Domain name or IP address
 - Google Maps API key
 
+https://github.com/michaelmuriith/snap-lastmile-delivery/main/vps-deploy.sh
+
 ### One-Command Deployment (Recommended)
 
 ```bash
 # On your fresh VPS - download and run the complete deployment script
-curl -fsSL https://raw.githubusercontent.com/yourusername/snap/main/vps-deploy.sh -o vps-deploy.sh
+curl -fsSL https://raw.githubusercontent.com/michaelmuriith/snap-lastmile-delivery/main/vps-deploy.sh -o vps-deploy.sh
 chmod +x vps-deploy.sh
 ./vps-deploy.sh
 ```
