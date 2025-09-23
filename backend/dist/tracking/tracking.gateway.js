@@ -12,7 +12,6 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 var TrackingGateway_1;
-var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TrackingGateway = void 0;
 const websockets_1 = require("@nestjs/websockets");
@@ -294,6 +293,7 @@ exports.TrackingGateway = TrackingGateway = TrackingGateway_1 = __decorate([
         },
         namespace: '/tracking',
     }),
-    __metadata("design:paramtypes", [jwt_1.JwtService, typeof (_a = typeof cqrs_1.CommandBus !== "undefined" && cqrs_1.CommandBus) === "function" ? _a : Object])
+    __metadata("design:paramtypes", [jwt_1.JwtService,
+        cqrs_1.CommandBus])
 ], TrackingGateway);
 //# sourceMappingURL=tracking.gateway.js.map
