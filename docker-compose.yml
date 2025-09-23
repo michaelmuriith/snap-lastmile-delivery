@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -11,12 +9,11 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
-      - "127.0.0.1:5432:5432"  # Bind to localhost for security
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/src/database/migrations:/docker-entrypoint-initdb.d
-    networks:
-      - snap_network
+    networks: [snap_network]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d snap_db"]
       interval: 10s
@@ -29,30 +26,28 @@ services:
     container_name: snap_redis
     restart: unless-stopped
     ports:
-      - "127.0.0.1:6379:6379"  # Bind to localhost for security
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
-    networks:
-      - snap_network
+    networks: [snap_network]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
 
-  # Node Exporter - System Metrics
+  # Node Exporter - System Metrics (keep internal only)
   node-exporter:
     image: prom/node-exporter:latest
     container_name: snap_node_exporter
     restart: unless-stopped
     ports:
-      - "9100:9100"
+      - "127.0.0.1:9100:9100"
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/rootfs:ro
-    networks:
-      - snap_network
+    networks: [snap_network]
     command:
       - '--path.procfs=/host/proc'
       - '--path.rootfs=/rootfs'
@@ -65,21 +60,20 @@ services:
       retries: 3
       start_period: 10s
 
-  # cAdvisor - Container Metrics
+  # cAdvisor - Container Metrics (internal only; avoid 8080 clash)
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: snap_cadvisor
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8082:8080"
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
-    networks:
-      - snap_network
+    networks: [snap_network]
     privileged: true
     devices:
       - /dev/kmsg
@@ -90,7 +84,7 @@ services:
       retries: 3
       start_period: 10s
 
-  # pgAdmin - Database Management Tool
+  # pgAdmin (internal only)
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: snap_pgadmin
@@ -100,12 +94,11 @@ services:
       PGADMIN_DEFAULT_PASSWORD: admin123
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     ports:
-      - "5050:80"
+      - "127.0.0.1:5050:80"
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - snap_network
+    networks: [snap_network]
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     healthcheck:
@@ -115,18 +108,17 @@ services:
       retries: 3
       start_period: 40s
 
-  # Prometheus - Metrics Collection
+  # Prometheus (internal only)
   prometheus:
     image: prom/prometheus:latest
     container_name: snap_prometheus
     restart: unless-stopped
     ports:
-      - "9090:9090"  # External access for monitoring
+      - "127.0.0.1:9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
-    networks:
-      - snap_network
+    networks: [snap_network]
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -141,7 +133,7 @@ services:
       retries: 3
       start_period: 40s
 
-  # Grafana - Monitoring Dashboard
+  # Grafana (internal only)
   grafana:
     image: grafana/grafana:latest
     container_name: snap_grafana
@@ -152,12 +144,11 @@ services:
       GF_USERS_ALLOW_SIGN_UP: 'false'
       GF_INSTALL_PLUGINS: 'grafana-piechart-panel,grafana-worldmap-panel'
     ports:
-      - "3001:3000"  # External access for dashboard
+      - "127.0.0.1:3001:3000"
     depends_on:
       prometheus:
         condition: service_healthy
-    networks:
-      - snap_network
+    networks: [snap_network]
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -191,16 +182,16 @@ services:
       JWT_REFRESH_SECRET: your-super-secret-refresh-key-here-change-in-production
       JWT_EXPIRES_IN: 15m
       JWT_REFRESH_EXPIRES_IN: 7d
-      FRONTEND_URL: http://localhost:5173
+      # set this to your public origin (for CORS), e.g. http://45.61.128.223 or your domain
+      FRONTEND_URL: http://45.61.128.223
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    networks:
-      - snap_network
+    networks: [snap_network]
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -211,7 +202,6 @@ services:
       retries: 3
       start_period: 40s
 
-
   # SNAP Frontend (Production)
   frontend:
     build:
@@ -221,22 +211,23 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      # API configuration for production build
-      VITE_API_BASE_URL: http://backend:3000/api
-      VITE_GOOGLE_MAPS_API_KEY: AIzaSyC_Fa79ugNW4zigkTvBWY4sqdD0Al2Ij_U
+      # Use a browser-resolvable URL. With Nginx proxying /api, a relative path is best:
+      VITE_API_BASE_URL: /api
+      # TODO: move secrets to an env file / secret store; avoid hardcoding keys in compose
+      # VITE_GOOGLE_MAPS_API_KEY: ${VITE_GOOGLE_MAPS_API_KEY}
     ports:
-      - "80:80"
+      - "127.0.0.1:8080:80"   # <— front only on loopback, Nginx will proxy public :80 → 8080
     depends_on:
       backend:
         condition: service_healthy
-    networks:
-      - snap_network
+    networks: [snap_network]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
 volumes:
   postgres_data:
   redis_data:
