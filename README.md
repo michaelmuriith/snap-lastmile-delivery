@@ -6,10 +6,28 @@ A comprehensive last-mile delivery platform built with modern technologies, feat
 
 ### Prerequisites
 - Ubuntu/Debian VPS (2GB RAM, 20GB storage minimum)
-- Docker and Docker Compose
-- Domain name (recommended)
+- Domain name or IP address
+- Google Maps API key
 
-### One-Command Deployment
+### One-Command Deployment (Recommended)
+
+```bash
+# On your fresh VPS - download and run the complete deployment script
+curl -fsSL https://raw.githubusercontent.com/yourusername/snap/main/vps-deploy.sh -o vps-deploy.sh
+chmod +x vps-deploy.sh
+./vps-deploy.sh
+```
+
+**That's it!** The script will automatically:
+- ✅ Update system packages
+- ✅ Install Docker & Docker Compose
+- ✅ Configure firewall and security
+- ✅ Set up SSL certificates (if domain provided)
+- ✅ Configure all environment variables
+- ✅ Start all services with monitoring
+- ✅ Create automated backup scripts
+
+### Manual Deployment (Alternative)
 
 ```bash
 # Clone repository
@@ -17,13 +35,16 @@ git clone <your-repo-url>
 cd snap
 
 # Run deployment script
-sudo chmod +x deploy.sh && ./deploy.sh
+chmod +x deploy.sh && ./deploy.sh
 
 # Configure environment
-sudo chmod +x setup-env.sh && ./setup-env.sh
+chmod +x setup-env.sh && ./setup-env.sh
 
 # Start application
 docker-compose up -d
+
+# Test deployment
+chmod +x test-deployment.sh && ./test-deployment.sh
 ```
 
 ## 📋 Services Overview
